@@ -1,4 +1,4 @@
 FSLR_Data
 =========
 
-Data From FSLR Paper
+Data From FSLR Paper submitted to R Journal.  
