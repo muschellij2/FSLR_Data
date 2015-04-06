@@ -1,23 +1,34 @@
+## ----echo=FALSE, message =FALSE, include= FALSE--------------------------
+install.packages("oro.nifti")
+install.packages("fslr")
+rmpkg = function(pkg){
+  rn = rownames( installed.packages() )
+  search_item = paste0("package:", pkg)
+  if (  search_item %in% search() ){
+    detach(search_item, unload=TRUE, character.only = TRUE)
+  }
+  if (pkg %in% rn){
+    remove.packages(pkg)
+  }
+}
+rmpkg("extrantsr")
 
 ## ----knit-setup, echo=FALSE, results='hide'------------------------------
 library(knitr)
 opts_chunk$set(echo=TRUE, prompt=FALSE, message=FALSE, warning=FALSE, comment="", results='hide')
 
-
 ## ----echo=FALSE----------------------------------------------------------
-rm(list=ls())
+rm(list=ls()[ ! ls() %in% "rmpkg"])
 library(fslr)
 library(methods)
 homedir = path.expand("~/Dropbox/FSLR")
 datadir = file.path(homedir, "data")
 resdir = file.path(homedir, "figure")
 
-
 ## ----fslr_setup, echo=TRUE-----------------------------------------------
 library(fslr)
 options(fsl.path="/usr/local/fsl")
 options(fsl.outputtype = "NIFTI_GZ")
-
 
 ## ----echo = FALSE--------------------------------------------------------
 # Get Files
@@ -42,7 +53,6 @@ df = data.frame(file = basename(files),
                 bias_file = basename(bias_files),
                 stringsAsFactors = FALSE)
 
-
 ## ----run_fast, eval= TRUE, echo=FALSE, cache=TRUE------------------------
 ext = get.imgext()
 for (ifile in seq_along(files)){
@@ -56,16 +66,13 @@ for (ifile in seq_along(files)){
   }
 }
 
-
 ## ----run_fast_df, eval = FALSE, results='markup', echo=FALSE-------------
 ## head(df, 2)
-
 
 ## ----run_fast_show, eval = FALSE-----------------------------------------
 ## fsl_biascorrect(file = "01-Baseline_T1.nii.gz",
 ##                 outfile= "01-Baseline_T1_FSL_BiasCorrect",
 ##                 opts= "-v")
-
 
 ## ----run_fast_show_old, eval = FALSE, echo=FALSE-------------------------
 ## for (ifile in seq_along(df)){
@@ -73,7 +80,6 @@ for (ifile in seq_along(files)){
 ##   file = df$file[ifile]
 ##   fsl_biascorrect(file, opts= "-v", outfile=bias_file)
 ## }
-
 
 ## ----make_bc_data, eval= TRUE, cache=TRUE, echo=FALSE--------------------
 t1 = readNIfTI(file.path(datadir, "01-Baseline_T1"), reorient=FALSE)
@@ -101,7 +107,6 @@ q = ggplot(aes(x=t1, y=bc_t1), data=dat) + geom_point() +
   ggtitle("Comparison of T1 Values and Bias-Corrected Values") + 
   geom_abline(intercept = 0, slope = 1, aes(colour="X = Y Line")) + geom_smooth(aes(colour="GAM"), se=FALSE, alpha= I(0.2))
 
-
 ## ----plot_flair_t1, include= FALSE, cache=TRUE---------------------------
 flair_t1_base = file.path(datadir, "01-Baseline_FLAIR_FSL_BiasCorrect_rigid_to_T1")
 
@@ -117,6 +122,12 @@ png(pngname)
 orthographic(flair_t1, text = "A\nBaseline\nCo-Registered\n FLAIR Image", text.cex = 3)
 dev.off()
 
+pngname = file.path(resdir, "FLAIR_Ortho_B_FLIRT.png")
+png(pngname)
+orthographic(flair_t1, text = "B\nBaseline\nCo-Registered\n FLAIR Image", text.cex = 3)
+dev.off()
+
+
 fdat = data.frame(flair_t1 = c(flair_t1), bc_t1 = c(bc_t1))
 dimg = dim(flair_t1)
 all.ind = expand.grid(dim1=seq(dimg[1]), 
@@ -129,6 +140,7 @@ u_z= sort(unique(fdat$dim3))
 l_z = length(u_z)
 cuts = seq(from = u_z[1], l_z, by=25)
 ## subsample for plotting
+set.seed(20150330)
 fdat = fdat[ sample(nrow(fdat), 10000), ]
 
 pflair = ggplot(aes(x=bc_t1, y=flair_t1), data=fdat) + geom_point() +
@@ -141,7 +153,7 @@ tsize = 16
 pflair = pflair + scale_colour_manual("", 
                             values = c("GAM"="deeppink"),
                             guide = guide_legend(reverse=TRUE)) 
-plotx = round(max(fdat$flair_t1) - 25)
+plotx = round(max(fdat$bc_t1) - 25)
 pflair + geom_text(data=d, x= plotx, y=50, size=20,
                   aes(label=label), colour="black") +
   theme(legend.position = c(.25, .75),
@@ -155,7 +167,6 @@ pflair + geom_text(data=d, x= plotx, y=50, size=20,
         strip.text = element_text(size = tsize+4),
         axis.text  = element_text(size=tsize-2))
 
-
 ## ----other_to_t1, cache=TRUE, echo= FALSE--------------------------------
 imgs = paste0("01-",  
                         outer(c("Baseline_", "Followup_"), 
@@ -166,23 +177,20 @@ reg_df = data.frame(t1 = t1.imgs, img = imgs, stringsAsFactors = FALSE)
 reg_df$omat = paste0(reg_df$img, "_rigid_to_T1.mat")
 reg_df$ofile = paste0(reg_df$img, "_rigid_to_T1")
 
-
 ## ----other_to_t1_print, cache=FALSE, echo= FALSE, eval= FALSE, results='markup'----
 ## head(reg_df, 2)
-
 
 ## ----other_to_t1_fpath, cache=FALSE, echo= FALSE-------------------------
 reg_df$omat = file.path(datadir, reg_df$omat)
 reg_df$ofile = file.path(datadir, reg_df$ofile)
 
-
 ## ----other_to_t1_show, eval=FALSE----------------------------------------
 ## flirt(reffile = "01-Baseline_T1_FSL_BiasCorrect",
-## 	infile = "01-Baseline_T2_FSL_BiasCorrect",
-## 	omat = "01-Baseline_T2_FSL_BiasCorrect_rigid_to_T1.mat",
-## 	outfile = "01-Baseline_T2_FSL_BiasCorrect_rigid_to_T1",
-## 	dof = 6, opts = "-v")
-
+##       infile = "01-Baseline_T2_FSL_BiasCorrect",
+##       omat = "01-Baseline_T2_FSL_BiasCorrect_rigid_to_T1.mat",
+##       dof = 6,
+##       outfile = "01-Baseline_T2_FSL_BiasCorrect_rigid_to_T1",
+##       opts = "-v")
 
 ## ----other_to_t1_run, cache=FALSE, echo=FALSE----------------------------
 for (iimg in seq(nrow(reg_df))){
@@ -190,10 +198,9 @@ for (iimg in seq(nrow(reg_df))){
   if (!file.exists(ofile)){
     flirt(reffile = reg_df$t1[iimg], infile = reg_df$img[iimg], 
           omat =  reg_df$omat[iimg], dof = 6,
-          outfile = reg_df$ofile[iimg], opts = '-v')
+          outfile = reg_df$ofile[iimg], opts = "-v")
   }
 }
-
 
 ## ----plot_bc_data, include= FALSE, cache=TRUE----------------------------
 d = data.frame(label="C")
@@ -215,6 +222,28 @@ p + geom_text(data=d, x= plotx, y=50, size=20,
         strip.text = element_text(size = tsize+4),
         axis.text  = element_text(size=tsize-2))
 
+## ----plot_bc_data_zoom, include= FALSE, cache=TRUE, eval=TRUE------------
+library(ggplot2)
+d = data.frame(label="D")
+tsize = 16
+pzoom = q + scale_colour_manual("", 
+                            values = c("X = Y Line" ="deepskyblue", "GAM"="deeppink"),
+                            guide = guide_legend(reverse=TRUE)) 
+plotx = 37.5
+pzoom = pzoom + geom_text(data=d, x= plotx, y=10, size=20,
+                  aes(label=label), colour="black") +
+  theme(legend.position = c(.25, .75),
+        legend.background = element_rect(fill="transparent"),
+        legend.key = element_rect(fill="transparent", 
+                                  color="transparent"),
+        legend.text = element_text(size=tsize+2), 
+        legend.title = element_text(size=tsize),
+        title = element_text(size=tsize),
+        plot.title = element_text(hjust = 0.8),        
+        strip.text = element_text(size = tsize+4),
+        axis.text  = element_text(size=tsize-2))
+pzoom = pzoom %+% dat[dat$t1 < 40,]
+print(pzoom)
 
 ## ----plot_ortho, eval= TRUE, echo= FALSE, cache=TRUE---------------------
 t1_2 = robust_window(t1, replace = "window")
@@ -226,7 +255,9 @@ bc_t1_2 = robust_window(bc_t1, replace = "window")
 png(file.path(resdir, "BC_T1_Ortho.png"))
 orthographic(bc_t1_2, text = "B\nBias-Corrected\n T1 Image", text.cex = 3)
 dev.off()
-
+png(file.path(resdir, "BC_T1_Ortho_A.png"))
+orthographic(bc_t1_2, text = "A\nBias-Corrected\n T1 Image", text.cex = 3)
+dev.off()
 
 ## ----t1_to_t1, cache=FALSE, echo=FALSE-----------------------------------
 base_t1 = file.path(datadir, "01-Baseline_T1_FSL_BiasCorrect")
@@ -234,15 +265,13 @@ fup_t1 = file.path(datadir, "01-Followup_T1_FSL_BiasCorrect")
 omat = paste0(fup_t1, "_rigid_to_BaseT1.mat")
 flirt_ofile = ofile = paste0(fup_t1, "_rigid_to_BaseT1")
 
-
 ## ----t1_to_t1_show, eval=FALSE-------------------------------------------
 ## flirt(reffile = "01-Baseline_T1_FSL_BiasCorrect",
-## 	infile = "01-Followup_T1_FSL_BiasCorrect",
+##       infile = "01-Followup_T1_FSL_BiasCorrect",
 ##       omat = "01-Followup_T1_FSL_BiasCorrect_rigid_to_BaseT1.mat",
 ##       dof = 6,
 ##       outfile = "01-Followup_T1_FSL_BiasCorrect_rigid_to_BaseT1",
-##       opts = '-v')
-
+##       opts = "-v")
 
 ## ----t1_to_t1_run, cache=FALSE, echo=FALSE-------------------------------
 ofile = paste0(ofile, ext)
@@ -250,9 +279,8 @@ ofile = paste0(ofile, ext)
 if (!file.exists(ofile)){
   flirt(reffile = base_t1, infile = fup_t1, 
       omat = omat, dof = 6,
-      outfile = ofile, opts = '-v')
+      outfile = ofile, opts = "-v")
 }
-
 
 ## ----plot_flirt, cache= TRUE, echo=FALSE---------------------------------
 bc_t1_2 = robust_window(bc_t1, replace = "window")
@@ -280,7 +308,6 @@ png(pngname)
 orthographic(fup_bc_t1_2, text = "E\nFollow-up\nT1 Image\nRegistered", text.cex = 3)
 dev.off()
 
-
 ## ----across_visit_run, cache=TRUE, echo=FALSE----------------------------
 run_df = reg_df[ grepl("Follow", reg_df$t1), ]
 run_df$reg_file = gsub("_to_T1", "_to_BaseT1", run_df$ofile)
@@ -294,14 +321,12 @@ for (iimg in seq(nrow(run_df))){
   }
 }
 
-
 ## ----across_visit_show, eval=FALSE,  echo=TRUE---------------------------
 ## flirt_apply(reffile = "01-Baseline_T1_FSL_BiasCorrect", # register to this
 ##             infile = "01-Followup_T2_FSL_BiasCorrect_rigid_to_T1", # reg to Followup T1
 ##             initmat = "01-Followup_T1_FSL_BiasCorrect_rigid_to_BaseT1.mat", #transform
 ##             outfile = "01-Followup_T2_FSL_BiasCorrect_rigid_to_BaseT1" # output file
 ##             )
-
 
 ## ----across_visit_print, cache= TRUE, echo=FALSE-------------------------
 print_df = reg_df
@@ -329,15 +354,13 @@ for (iimg in seq_along(files)){
   }
 }
 
-
 ## ----bet_t1_run, echo=FALSE----------------------------------------------
 orig_t1 = file.path(datadir, "01-Baseline_T1")
 bet_base_t1 = paste0(base_t1, "_Brain")
-base_t1_maskfile = paste0(bet_base_t1, "_Mask")
+base_t1_maskfile = paste0(bet_base_t1, "_mask")
 if (!file.exists(paste0(bet_base_t1, ext))){
   fslbet(infile = orig_t1, outfile = bet_base_t1, opts = "-B -f 0.1 -v", betcmd = "bet")
 }
-
 
 ## ----bet_t1, eval = FALSE------------------------------------------------
 ## fslbet(infile =  '01-Baseline_T1',
@@ -345,7 +368,6 @@ if (!file.exists(paste0(bet_base_t1, ext))){
 ##        opts = "-B -f 0.1 -v",  # from Popescu et al.
 ##        betcmd = "bet",
 ##        intern=FALSE)
-
 
 ## ----plot_bet_mask, cache= TRUE, echo=FALSE------------------------------
 library(scales)
@@ -364,13 +386,11 @@ png(pngname)
 orthographic(base_t1_brain, text = "B\n T1 Image\nBrain Extracted", text.cex = 3)
 dev.off()
 
-
 ## ----bet_mask_print, echo=TRUE, eval=FALSE-------------------------------
 ## mask <- fslmask(file="01-Baseline_T2_FSL_BiasCorrect_rigid_to_T1",
-##         mask = "01-Baseline_T1_FSL_BiasCorrect_Brain_Mask",
-##         outfile = "01-Baseline_T2_FSL_BiasCorrect_rigid_to_T1_Brain",
-##         retimg = TRUE)
-
+##                 mask = "01-Baseline_T1_FSL_BiasCorrect_Brain_mask",
+##                 outfile = "01-Baseline_T2_FSL_BiasCorrect_rigid_to_T1_Brain",
+##                 retimg = TRUE)
 
 ## ----bet_mask_run, echo=FALSE, cache=TRUE--------------------------------
 files = c(
@@ -386,7 +406,6 @@ for (ifile in seq_along(files)){
           outfile = bet_files[ifile])
 }
 
-
 ## ----t1_to_mni, cache=TRUE, echo=FALSE-----------------------------------
 bet_base_t1 = file.path(datadir, "01-Baseline_T1_FSL_BiasCorrect_Brain")
 template = file.path(fsldir(), "data", "standard", "MNI152_T1_1mm_brain")
@@ -395,14 +414,12 @@ flirt_ofile = paste0(bet_base_t1, "_affine_toMNI")
 fnirt_ofile = paste0(bet_base_t1, "_toMNI")
 fnirt_owarp = paste0(flirt_ofile, "_warpcoef")
 
-
 ## ----t1_to_mni_show, eval=FALSE------------------------------------------
 ## fnirt_with_affine(infile = "01-Baseline_T1_FSL_BiasCorrect_Brain",
 ##                   reffile = file.path(fsldir(), "data", "standard", "MNI152_T1_1mm_brain"),
 ##                   flirt.omat = "01-Baseline_T1_FSL_BiasCorrect_Brain_affine_toMNI.mat",
 ##                   flirt.outfile = "01-Baseline_T1_FSL_BiasCorrect_Brain_affine_toMNI",
 ##                   outfile = "01-Baseline_T1_FSL_BiasCorrect_Brain_toMNI")
-
 
 ## ----t1_to_mni_run, cache=TRUE, echo=FALSE, eval=FALSE-------------------
 ## fnirt_ofile = paste0(fnirt_ofile, ext)
@@ -414,7 +431,6 @@ fnirt_owarp = paste0(flirt_ofile, "_warpcoef")
 ##                     flirt.outfile = flirt_ofile,
 ##                     outfile = fnirt_ofile, opts = '-v')
 ## }
-
 
 ## ----plot_warp, eval= TRUE, echo= FALSE, cache=TRUE----------------------
 fnirt_img = readNIfTI(fnirt_ofile, reorient = FALSE)
@@ -471,7 +487,6 @@ for (islice in c(25, 45, 92, 137)){
 
 
 
-
 ## ----all_to_mni_show, cache=FALSE, eval=FALSE, echo=FALSE----------------
 ## for (ifile in bet_files){
 ##   ofile = paste0(ifile, '_toMNI', ext)
@@ -486,7 +501,6 @@ for (islice in c(25, 45, 92, 137)){
 ##                   opts = '-v')
 ## }
 
-
 ## ----all_to_mni_show2, cache=FALSE, eval=FALSE---------------------------
 ## flirt_apply(infile = "01-Baseline_T2_FSL_BiasCorrect_rigid_to_T1_Brain",
 ##             reffile = file.path(fsldir(), "data", "standard", "MNI152_T1_1mm_brain"),
@@ -496,7 +510,6 @@ for (islice in c(25, 45, 92, 137)){
 ##               reffile = file.path(fsldir(), "data", "standard", "MNI152_T1_1mm_brain"),
 ##               warpfile = "01-Baseline_T1_FSL_BiasCorrect_Brain_affine_toMNI_warpcoef",
 ##               outfile = "01-Baseline_T2_FSL_BiasCorrect_rigid_to_T1_Brain_toMNI")
-
 
 ## ----all_to_mni_run, cache=TRUE, echo=FALSE------------------------------
 ifile = bet_files[1]
@@ -515,10 +528,8 @@ for (ifile in bet_files){
   }
 }
 
-
-## ----smoother_show,echo=FALSE, eval=FALSE--------------------------------
+## ----smoother_shower,echo=FALSE, eval=FALSE------------------------------
 ## smooth = fslsmooth(base_t1_brain, sigma = 3, retimg=TRUE)
-
 
 ## ----smoother_plot, echo=FALSE, cache=TRUE, dev='png', eval=FALSE--------
 ## pngname = file.path(resdir, "Bet_Brain_A.png")
@@ -532,47 +543,92 @@ for (ifile in bet_files){
 ##              text.cex = 3)
 ## dev.off()
 
+## ----read_to_temp, cache=FALSE, echo=FALSE-------------------------------
+t1_to_temp = readNIfTI(file.path(datadir, "01-Baseline_T1_FSL_BiasCorrect_Brain_toMNI"), reorient=FALSE)
 
-## ----read_diff, cache=FALSE, echo=FALSE----------------------------------
-base_t1_mask = readNIfTI(base_t1_maskfile, reorient=FALSE)
-base_t1file = file.path(datadir, "01-Baseline_T1_FSL_BiasCorrect")
-base_t1 = readNIfTI(base_t1file, reorient=FALSE)
+## ----read_base_show, eval=FALSE------------------------------------------
+## t1_to_temp = readNIfTI("01-Baseline_T1_FSL_BiasCorrect_Brain_toMNI", reorient=FALSE)
 
+## ----smoother,echo=FALSE, cache=TRUE, dev='png', eval=TRUE, include=FALSE----
+smooth = fslsmooth(t1_to_temp, sigma = 3, retimg=TRUE)
+orthographic(smooth, text = "A\nSmoothed Image", 
+               text.cex = 3)
+
+## ----smoother_show,echo=TRUE, cache=TRUE, dev='png', eval=FALSE----------
+## smooth = fslsmooth(t1_to_temp, sigma = 3, retimg=TRUE)
+
+## ----binned,echo=FALSE, cache=TRUE, dev='png', eval=TRUE, results='hide', include=FALSE----
+binned = fslbin(t1_to_temp, retimg=TRUE)
+binned = cal_img(binned)
+orthographic(cal_img(binned), text = "B\nBinarized\nRegistered T1\nImage", 
+               text.cex = 3)
+
+## ----binned_show,echo=TRUE, cache=TRUE, dev='png', eval=FALSE, results='markup'----
+## binned = fslbin(t1_to_temp, retimg=TRUE)
+
+## ----thresh,echo=FALSE, cache=TRUE, dev='png', eval=TRUE, results='hide', include=FALSE----
+thresh = fslthresh(t1_to_temp, thresh = 30, uthresh = 50, retimg=TRUE)
+orthographic(cal_img(thresh), text = "C\nThresholded\nRegistered T1\nImage", 
+               text.cex = 3)
+
+## ----thresh_show,echo=TRUE, cache=TRUE, dev='png', eval=FALSE------------
+## thresh = fslthresh(t1_to_temp, thresh = 30, uthresh = 50, retimg=TRUE)
+
+## ----ero,echo=FALSE, cache=TRUE, dev='png', eval=TRUE, include=FALSE-----
+eroded = fslerode(binned, retimg=TRUE)
+orthographic(niftiarr(binned, binned - eroded), text = "D\nEroded Voxels", 
+               text.cex = 3)
+
+## ----ero_show,echo=TRUE, cache=TRUE, dev='png', eval=FALSE---------------
+## eroded = fslerode(binned, retimg=TRUE)
+
+## ----fslval_show, echo=TRUE, eval = FALSE--------------------------------
+## fslval("01-Baseline_T1_FSL_BiasCorrect_Brain", keyword = "dim3")
+
+## ----fslval, echo=FALSE, eval = TRUE, results='markup'-------------------
+fslval(file.path(datadir, "01-Baseline_T1_FSL_BiasCorrect_Brain"), keyword = "dim3", verbose = FALSE)
+
+## ----fslhd_show, echo=TRUE, eval = FALSE---------------------------------
+## img_hdr = fslhd("01-Baseline_T1_FSL_BiasCorrect_Brain")
+
+## ----fslmean_show, echo=TRUE, eval = FALSE-------------------------------
+## fslstats("01-Baseline_T1_FSL_BiasCorrect_Brain", opts = "-M")
+
+## ----fslmean, echo=FALSE, eval = TRUE, results='markup'------------------
+fslstats(file.path(datadir, "01-Baseline_T1_FSL_BiasCorrect_Brain"), 
+         opts = "-M", verbose = FALSE)
+
+## ----read_diff, eval=TRUE, echo = FALSE, cache=TRUE----------------------
+base_t1 = readNIfTI(file.path(datadir, "01-Baseline_T1_FSL_BiasCorrect"), reorient=FALSE)
+base_t1_mask = readNIfTI(file.path(datadir, "01-Baseline_T1_FSL_BiasCorrect_Brain_mask"), reorient=FALSE)
 
 ## ----read_diff_show, eval=FALSE------------------------------------------
 ## base_t1 = readNIfTI("01-Baseline_T1_FSL_BiasCorrect", reorient=FALSE)
-## base_t1_mask = readNIfTI("01-Baseline_T1_Brain_Mask", reorient=FALSE)
-
+## base_t1_mask = readNIfTI("01-Baseline_T1_FSL_BiasCorrect_Brain_mask", reorient=FALSE)
 
 ## ----masking_multiply, cache=FALSE, results='markup'---------------------
 base_t1_1 = base_t1 * base_t1_mask
 class(base_t1_1)
 
-
 ## ----masking_niftiarr, cache=FALSE, results='markup'---------------------
 base_t1_1 = niftiarr(base_t1, base_t1_1)
 class(base_t1_1)
-
 
 ## ----masking_2, cache=FALSE, results='markup'----------------------------
 base_t1_2 = base_t1
 base_t1_2[base_t1_mask == 0] = 0
 class(base_t1_2)
 
-
 ## ----cal_img, cache=FALSE, results='markup'------------------------------
 range(base_t1_2)
 c(base_t1_2@cal_min, base_t1_2@cal_max)
 
-
 ## ----cal_img2, cache=FALSE, results='markup'-----------------------------
 base_t1_2 = cal_img(base_t1_2)
-range(base_t1_2)
-
+c(base_t1_2@cal_min, base_t1_2@cal_max)
 
 ## ----allequal, cache=FALSE, results='markup'-----------------------------
-all.equal(base_t1_1, base_t1_2)
-
+identical(base_t1_1, base_t1_2)
 
 ## ----diff_img, cache=TRUE, echo=FALSE------------------------------------
 fup_t1file = file.path(datadir, 
@@ -595,7 +651,6 @@ q = qplot(x=base, y=fup, data=dat,
      se=FALSE, alpha= I(0.2)) + 
   geom_abline(intercept = 0, slope =1, col="red")
 
-
 ## ----plot_base_follow_data, include= FALSE, cache=TRUE, echo=FALSE-------
 d = data.frame(label="C")
 tsize = 16
@@ -612,7 +667,6 @@ q  + geom_text(data=d, x= plotx, y=25, size=20,
         plot.title = element_text(hjust = 0.8),        
         strip.text = element_text(size = tsize+4),
         axis.text  = element_text(size=tsize-2))
-
 
 ## ----plot_diff, cache = TRUE, echo=FALSE---------------------------------
 pngname = file.path(resdir, "T1_Diff_Img.png")
@@ -644,17 +698,14 @@ options(scipen=8)
 dev.off()
 
 
-
 ## ----dsmoother_show,echo=FALSE, eval= FALSE------------------------------
 ## smooth = fslsmooth(diff.img, sigma = 3, retimg=TRUE)
 
-
-## ----smoother,echo=FALSE, cache=TRUE, dev='png', eval=FALSE--------------
+## ----smoother_diff_img,echo=FALSE, cache=TRUE, dev='png', eval=FALSE-----
 ## smooth = fslsmooth(diff.img, sigma = 3, retimg=TRUE)
 ## smooth[base_t1_mask == 0] = NA
 ## orthographic(smooth,text = "A\nDifference\nT1 Image\nSmoothed",
 ##                text.cex = 2)
-
 
 ## ----smoother_run,echo=FALSE, cache=TRUE,  eval=TRUE---------------------
 smooth = fslsmooth(diff.img, sigma = 3, retimg=TRUE)
@@ -684,7 +735,6 @@ png(pngname)
          leg.col = mycols, leg.cex= 1.5, 
          add.orient = FALSE)
 dev.off()
-
 
 ## ----white_stripe, cache=FALSE, include = FALSE, eval=FALSE--------------
 ## library(WhiteStripe)
@@ -746,7 +796,6 @@ dev.off()
 ## dev.off()
 ## 
 
-
 ## ----diff_z, echo=FALSE, cache=TRUE, dev='png', eval=FALSE---------------
 ## base_z = base_t1_1
 ## vals = base_z[base_t1_mask == 1]
@@ -760,7 +809,6 @@ dev.off()
 ## diff.z[base_t1_mask == 0] = NA
 ## orthographic(diff.z)
 
-
 ## ----theshimg, echo=FALSE, cache=TRUE, dev='png', eval=FALSE-------------
 ## thresh.img = t1
 ## thresh.img = (thresh.img - mean(thresh.img))/sd(thresh.img)
@@ -768,9 +816,15 @@ dev.off()
 ## thresh.img = cal_img(thresh.img)
 ## orthographic(thresh.img)
 
-
 ## ----smooth.thresh, echo=FALSE, cache = TRUE, dev='png', eval=FALSE------
 ## smooth.thresh = fslsmooth(thresh.img, sigma = 4, retimg=TRUE)
 ## orthographic(smooth.thresh)
 
+## ----echo=FALSE, message =FALSE, include= FALSE--------------------------
+rmpkg("fslr")
+rmpkg("oro.nifti")
+rmpkg("extrantsr")
+devtools::install_github("muschellij2/oro.nifti")
+devtools::install_github("muschellij2/fslr")
+devtools::install_github("muschellij2/extrantsr")
 
